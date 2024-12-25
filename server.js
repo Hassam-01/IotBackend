@@ -11,7 +11,7 @@ const supaBaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supaBaseUrl, supaBaseKey);
 
 // API endpoint to get data from the "test" table
-app.get("/test", async (req, res) => {
+app.get("/api/test", async (req, res) => {
   try {
     const { data, error } = await supabase.from("test").select("*");
     if (error) {
