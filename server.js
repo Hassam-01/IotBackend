@@ -90,7 +90,6 @@ function encryptData(data) {
 
 // Register Route
 app.post("/api/register", async (req, res) => {
-    console.log(req.body);
     const { username, email, password } = req.body;
   
     // Validate input
@@ -173,14 +172,12 @@ app.post("/api/setDefault", async (req, res) => {
 // data is the sensor value and status is the sensor state
 app.get("/api/displayData/:userID", async (req, res) => {
     const { userID } = req.params;
-    console.log(userID)
     // Fetch the sensor from the database by matching the userID
     const { data: sensors, error } = await supabase
     .from('sensors')
-    .select('sensor_type, pressure_value, status')
+    .select('sensor_type, pressure_value, state')
     .eq('user_id', userID);
 
-    console.log(error, sensors)
     if (error || !sensors) {
         return res.status(400).json({ message: "Invalid credentials." });
     }
