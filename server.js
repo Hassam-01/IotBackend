@@ -98,6 +98,17 @@ app.post("/api/register", async (req, res) => {
         return res.status(400).json({ message: "All fields are required." });
     }
     
+    // Check if the username or email already exists
+    const { data: existingUser, error: existingUserError } = await supabase
+        .from('users')
+        .select('username, email')
+        .or(`username.eq.${username},email.eq.${email}`)
+        .single();
+    
+    if (existingUser) {
+        return res.status(400).json({ message: "Username or email already exists." });
+    }
+    
     // Hash the password before saving
     const hashedPassword = await bcrypt.hash(password, 10);
     
@@ -116,11 +127,12 @@ app.post("/api/register", async (req, res) => {
         message: "User registered successfully.",
         userID: data.user_id,
         username: data.username,
+        status: 200,
       });
     } catch (err) {
       res.status(500).json({ message: "Error registering user.", error: err.message });
     }
-  });
+});
   
 // api to set all sensor pass for the user = admin the user would not provide any pass
 app.post("/api/setDefault", async (req, res) => {
@@ -348,7 +360,8 @@ try {
     // Create JWT token
     const token = jwt.sign({ userId: user.user_id, username: user.username }, JWT_SECRET, { expiresIn: '1h' });
     
-    return res.status(200).json({ token, userID: user.user_id, userName: user.username });
+    return res.status(200).json({ token, userID: user.user_id, userName: user.username, status: 200,
+    });
 } catch (err) {
     res.status(500).json({ message: "Error logging in.", error: err.message });
   }
