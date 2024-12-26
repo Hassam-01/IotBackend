@@ -7,6 +7,11 @@ const { createClient } = require("@supabase/supabase-js");
 const cors = require("cors");
 const app = express();
 const cron = require("node-cron");
+const crypto = require('crypto');
+
+const algorithm = 'aes-256-cbc';
+const key = crypto.randomBytes(32);
+const iv = crypto.randomBytes(16);
 
 app.use(express.json());
 app.use(cors({
@@ -24,6 +29,12 @@ const supabase = createClient(supaBaseUrl, supaBaseKey);
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 const JWT_SECRET_SENSOR = process.env.JWT_SECRET_SENSOR || "your-secret-key-sensor";
 
+function encrypt(text) {
+    const cipher = crypto.createCipheriv(algorithm, key, iv);
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    return { iv: iv.toString('hex'), encryptedData: encrypted };
+  }
 
 function authenticateSensorToken(req, res, next) {
     const token = req.header('Authorization') && req.header('Authorization').split(' ')[1];  // Extract the token
@@ -100,7 +111,6 @@ app.post("/api/register", async (req, res) => {
         if (error) {
             return res.status(400).json({ message: error.message });
         }
-        console.log("005")
   
       res.status(201).json({
         message: "User registered successfully.",
@@ -146,15 +156,19 @@ app.post("/api/setDefault", async (req, res) => {
         res.status(500).json({ message: "Internal server error." });
     }
 });
+
 // get the waterdata, gasdata, electricitydata, waterStatus, gasStatus, electricStatus from the api/displayData/:userID
 // data is the sensor value and status is the sensor state
 app.get("/api/displayData/:userID", async (req, res) => {
     const { userID } = req.params;
+    console.log(userID)
     // Fetch the sensor from the database by matching the userID
     const { data: sensors, error } = await supabase
     .from('sensors')
     .select('sensor_type, pressure_value, status')
     .eq('user_id', userID);
+
+    console.log(error, sensors)
     if (error || !sensors) {
         return res.status(400).json({ message: "Invalid credentials." });
     }
@@ -236,6 +250,39 @@ app.post("/api/getinfo/:type", authenticateSensorToken, async (req, res) => {
     return res.status(200).json({ sensor });
 });
 
+//api for changing the value of sensor /api/changeValue/:type change the optimal_value
+app.post("/api/changeValue/:type", authenticateSensorToken, async (req, res) => {
+    const { type } = req.params;
+    const { newValue: optimal_value, userID } = req.body;
+    // Validate input
+    if (!optimal_value) {
+        return res.status(400).json({ message: "All fields are required." });
+    }
+    // Fetch the sensor from the database by matching the userID
+    const { data: sensor, error } = await supabase
+    .from('sensors')
+    .select('*')
+    .eq('user_id', req.body.userID)
+    .eq('sensor_type', type)
+    .single();
+    
+    if (error || !sensor) {
+        return res.status(400).json({ message: "Invalid credentials." });
+    }
+    // Update the sensor optimal value
+    const { data: updatedSensor, error: updateError } = await supabase
+    .from('sensors')
+    .update({ optimal_value })
+    .eq('sensor_id', sensor.sensor_id)
+    .single();
+    
+    if (updateError) {
+        return res.status(400).json({ message: "Error updating sensor optimal value." });
+    }
+    return res.status(200).json({ message: "Sensor optimal value updated successfully." });
+});
+
+
 //api for changing pass of sensor /api/changePass/:type
 app.post("/api/changePassword/:type", authenticateSensorToken, async (req, res) => {
     const { type } = req.params;
@@ -274,7 +321,6 @@ app.post("/api/changePassword/:type", authenticateSensorToken, async (req, res) 
 
 // Login Route
 app.post("/api/login", async (req, res) => {
-console.log("login")
   const { username, password } = req.body;
 
   if (!username || !password) {
