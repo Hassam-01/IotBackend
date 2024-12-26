@@ -79,31 +79,39 @@ function encryptData(data) {
 
 // Register Route
 app.post("/api/register", async (req, res) => {
-  const { username, email, password } = req.body;
-  // Validate input
-  if (!username || !email || !password) {
-    return res.status(400).json({ message: "All fields are required." });
-  }
-  // Hash the password before saving
-  const hashedPassword = await bcrypt.hash(password, 10);
+    console.log(req.body);
+    const { username, email, password } = req.body;
   
-  try {
-      // Insert user into the database
-      const { data, error } = await supabase
-      .from('users')
-      .insert([{ username, email, password: hashedPassword }])
-      .single();
-      
-      if (error) {
-        return res.status(400).json({ message: error.message });
-
+    // Validate input
+    if (!username || !email || !password) {
+        return res.status(400).json({ message: "All fields are required." });
+    }
+    
+    // Hash the password before saving
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    try {
+        // Insert user into the database and retrieve the inserted data
+        const { data, error } = await supabase
+        .from('users')
+        .insert([{ username, email, password: hashedPassword }])
+        .select('user_id, username')
+        .single(); // Ensures only one record is returned
+        if (error) {
+            return res.status(400).json({ message: error.message });
         }
-
-    res.status(201).json({ message: "User registered successfully.", userID: data.user_id });
-  } catch (err) {
-    res.status(500).json({ message: "Error registering user.", error: err.message });
-  }
-});
+        console.log("005")
+  
+      res.status(201).json({
+        message: "User registered successfully.",
+        userID: data.user_id,
+        username: data.username,
+      });
+    } catch (err) {
+      res.status(500).json({ message: "Error registering user.", error: err.message });
+    }
+  });
+  
 // api to set all sensor pass for the user = admin the user would not provide any pass
 app.post("/api/setDefault", async (req, res) => {
     const { userID } = req.body;
@@ -266,6 +274,7 @@ app.post("/api/changePassword/:type", authenticateSensorToken, async (req, res) 
 
 // Login Route
 app.post("/api/login", async (req, res) => {
+console.log("login")
   const { username, password } = req.body;
 
   if (!username || !password) {
